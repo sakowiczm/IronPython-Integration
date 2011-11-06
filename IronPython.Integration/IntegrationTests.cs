@@ -243,6 +243,169 @@ clr.CompileModules(""simple_class.dll"", ""simple_class.py"")
             Assert.IsTrue(result == 2);
         }
 
+        //[Test] // this doesn't make sense - CompiledCode most likely is not executed?
+        public void CompareExecutionTimeOfCompiledCodeVsScriptSourceSpeedTest()
+        {
+            ScriptEngine engine = Python.CreateEngine();
+            ScriptScope scope = engine.CreateScope();
+
+            // define function
+
+            string script = @"
+import math
+
+def phi(x):
+    # constants
+    a1 =  0.254829592
+    a2 = -0.284496736
+    a3 =  1.421413741
+    a4 = -1.453152027
+    a5 =  1.061405429
+    p  =  0.3275911
+
+    # Save the sign of x
+    sign = 1
+    if x < 0:
+        sign = -1
+    x = abs(x)/math.sqrt(2.0)
+
+    # A&S formula 7.1.26
+    t = 1.0/(1.0 + p*x)
+    y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*math.exp(-x*x)
+
+    return 0.5*(1.0 + sign*y)
+
+def Add():
+    return phi(10) + phi(5)
+";
+
+            // compile
+
+            ScriptSource source = engine.CreateScriptSourceFromString(script, SourceCodeKind.Statements);
+            CompiledCode compiled = source.Compile();
+            compiled.Execute(scope);
+
+            // execute
+
+            dynamic fAdd = scope.GetVariable("Add");
+
+            Stopwatch sw = new Stopwatch();
+
+            sw.Start();
+
+            for (int i = 0; i < 10000; i++)
+            {
+                engine.Operations.Invoke(fAdd);
+            }
+
+            sw.Stop();
+
+            Console.WriteLine(sw.ElapsedMilliseconds);
+
+            var scope2 = engine.CreateScope();
+
+            sw.Reset();
+
+            sw.Start();
+
+            for (int i = 0; i < 10000; i++)
+            {
+                compiled.Execute(scope2);
+            }
+
+            sw.Stop();
+
+            Console.WriteLine(sw.ElapsedMilliseconds);
+        }
+
+        [Test]
+        public void CompareExecutionTimeOfCompiledCodeVsScriptSourceWithParametersSpeedTest()
+        {
+            // TODO: I don't understand what is happening here - no matter which test will be first - the first one is way slower
+
+            #region Init
+
+            Random random = new Random();
+            Stopwatch sw = new Stopwatch();
+
+            int noLoops = 10000;
+
+            string script = @"
+c = ''
+
+def Add():
+    global c
+    c = v + str(a + b)
+";
+
+            #endregion
+
+            #region ScriptSource
+
+            ScriptEngine engine = Python.CreateEngine();
+            ScriptScope scope = engine.CreateScope();
+
+            ScriptSource source = engine.CreateScriptSourceFromString(script, SourceCodeKind.AutoDetect);
+            source.Execute(scope);
+
+            dynamic fAdd = scope.GetVariable("Add");
+
+            sw.Start();
+
+            for (int i = 0; i < noLoops; i++)
+            {
+                scope.SetVariable("v", "Value 1: ");
+                scope.SetVariable("a", random.Next());
+                scope.SetVariable("b", random.Next());
+
+                engine.Operations.Invoke(fAdd);
+
+                var r = scope.GetVariable("c");
+
+                //Console.WriteLine(r);
+            }
+
+            sw.Stop();
+
+            Console.WriteLine("Time 1: " + sw.ElapsedMilliseconds);
+
+            #endregion
+
+            sw.Reset();
+
+            #region CompiledCode
+
+            ScriptEngine engine2 = Python.CreateEngine();
+            ScriptScope scope2 = engine2.CreateScope();
+
+            ScriptSource source2 = engine2.CreateScriptSourceFromString(script, SourceCodeKind.AutoDetect);
+            CompiledCode compiled = source2.Compile();
+            compiled.Execute(scope2);
+
+            dynamic fAdd2 = scope2.GetVariable("Add");
+
+            sw.Start();
+
+            for (int i = 0; i < noLoops; i++)
+            {
+                scope2.SetVariable("v", "Value 2: ");
+                scope2.SetVariable("a", random.Next());
+                scope2.SetVariable("b", random.Next());
+
+                engine2.Operations.Invoke(fAdd2);
+
+                var r = scope2.GetVariable("c");
+
+                //Console.WriteLine(r);
+            }
+
+            sw.Stop();
+
+            Console.WriteLine("Time 2: " + sw.ElapsedMilliseconds);
+
+            #endregion
+        }
+
         public static int GetValue()
         {
             return 4;
