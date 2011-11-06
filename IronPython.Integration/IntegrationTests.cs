@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
@@ -31,26 +32,18 @@ namespace IronPython.Integration
             ScriptEngine engine = Python.CreateEngine();
             ScriptScope scope = engine.CreateScope();
 
-            // define function
-
             string printHello = @"
 def PrintHello(name):
     msg = 'Hello ' + name
-    print msg
     return msg
 ";
 
-            // compile
-
             ScriptSource source = engine.CreateScriptSourceFromString(printHello, SourceCodeKind.Statements);
-            CompiledCode compiled = source.Compile();
-            compiled.Execute(scope);
+            source.Execute(scope);
 
-            // pass parameter & execute
+            var fPrintHello = scope.GetVariable<Func<string, string>>("PrintHello");
 
-            dynamic fPringHello = scope.GetVariable("PrintHello");
-
-            var result = engine.Operations.Invoke(fPringHello, "Michal");            
+            var result = fPrintHello("Michal");          
 
             Assert.IsTrue(result == "Hello Michal");
         }
