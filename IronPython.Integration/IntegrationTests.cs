@@ -243,6 +243,58 @@ clr.CompileModules(""simple_class.dll"", ""simple_class.py"")
             Assert.IsTrue(result == 2);
         }
 
+        [Test]
+        public void ReturnDateTimeHandlingTest()
+        {
+            // http://www.doughellmann.com/PyMOTW/datetime/
+
+            ScriptEngine engine = Python.CreateEngine();
+            ScriptScope scope = engine.CreateScope();
+
+            string script = @"
+def GetDateTimeAndReturnIt(d):
+    return d
+
+import datetime
+
+def ReturnPythonDateTime():
+    return datetime.datetime.today()
+
+from System import DateTime
+
+def ConversionTest(d):
+    dt = datetime.datetime(d)
+    s = dt.strftime(""%m/%Y/%d %H:%M:%S"")
+    return DateTime.Parse(s)
+";
+
+            // compile
+
+            ScriptSource source = engine.CreateScriptSourceFromString(script, SourceCodeKind.Statements);
+            CompiledCode compiled = source.Compile();
+            compiled.Execute(scope);
+
+            // pass parameter & execute
+
+            var fGetDateTimeAndReturnIt = scope.GetVariable<Func<DateTime, DateTime>>("GetDateTimeAndReturnIt");
+
+            var now = DateTime.Now;
+            dynamic result = fGetDateTimeAndReturnIt(now);
+            Assert.AreEqual(now, result);
+
+            var fReturnPythonDateTime = scope.GetVariable("ReturnPythonDateTime");
+
+            result = fReturnPythonDateTime();
+
+            DateTime dt;
+            Assert.IsTrue(DateTime.TryParse(result.ToString(), out dt));
+
+            var fConversionTest = scope.GetVariable<Func<DateTime, DateTime>>("ConversionTest");
+
+            result = fConversionTest(now);
+            Assert.That(now, Is.EqualTo(result).Within(TimeSpan.FromSeconds(1)));
+        }
+
         public static int GetValue()
         {
             return 4;
