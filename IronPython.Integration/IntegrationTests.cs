@@ -7,9 +7,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using IronPython.Hosting;
+using IronPython.Runtime;
+using IronPython.Runtime.Exceptions;
 using Microsoft.Scripting;
 using Microsoft.Scripting.Hosting;
 using NUnit.Framework;
+using List = IronPython.Runtime.List;
 
 namespace IronPython.Integration
 {
@@ -166,7 +169,7 @@ def DivideAndReturnAsStirng(a,b):
 
             var result = engine.Operations.Invoke(function, "11", "3");
 
-            Assert.IsTrue(result == "3,6666666666666666666666666667");
+            Assert.IsTrue(result == "3.6666666666666666666666666667" || result == "3,6666666666666666666666666667");
         }
 
         [Test]
@@ -301,6 +304,49 @@ def ConversionTest(d):
             ScriptEngine engine = ScriptRuntime.CreateFromConfiguration().GetEngine("Python");
 
             Assert.IsTrue(engine != null);
+        }
+
+        [Test]
+        public void PassingParameterTest2()
+        {
+            ScriptEngine engine = Python.CreateEngine();
+            ScriptScope scope = engine.CreateScope();
+
+            List<string> calledStuff = new List<string>();
+
+            engine.SetTrace(
+                delegate(TraceBackFrame frame, string res, object payload)
+                    {
+                        if (frame.f_code == null)
+                            return null;
+
+                        switch(res)
+                        {
+                            case "call":
+                                Console.WriteLine("Call: {0}", frame.f_code.co_name);
+                                calledStuff.Add(frame.f_code.co_name);
+                                break;
+                            case "return":
+                                break;
+                        }
+
+                        return null;
+                    }
+                );
+
+            string script = @"
+class simple_class():
+    def avg(self,a,b,c):
+        return (a+b+c)/3
+
+x = simple_class()
+print x.avg(1,2,3)
+";
+
+            ScriptSource source = engine.CreateScriptSourceFromString(script, SourceCodeKind.Statements);
+            source.Execute(scope);
+
+            Assert.IsTrue(calledStuff.Count > 0);
         }
 
         public static int GetValue()
