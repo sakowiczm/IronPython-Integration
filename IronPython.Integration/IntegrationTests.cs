@@ -295,6 +295,14 @@ def ConversionTest(d):
             Assert.That(now, Is.EqualTo(result).Within(TimeSpan.FromSeconds(1)));
         }
 
+        [Test]
+        public void InstantiatePythonViaConfigurationFileTest()
+        {
+            ScriptEngine engine = ScriptRuntime.CreateFromConfiguration().GetEngine("Python");
+
+            Assert.IsTrue(engine != null);
+        }
+
         public static int GetValue()
         {
             return 4;
